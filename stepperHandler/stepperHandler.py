@@ -16,8 +16,6 @@ import re
 import RPi.GPIO as GPIO
 import threading
 import subprocess
-from threading import Event
-import wiringpi
 
 PUL = [ 0, 0, 0 ]  # PUL pins
 DIR = [ 0, 0, 0 ]  # Controller Direction Pin (High for Controller default /
@@ -1084,8 +1082,6 @@ class GPIOHandler:
         global DIR
         global stepper
 
-        wiringpi.wiringPiSetup()
-
         switch_interval = sys.getswitchinterval() / 100.0
         sys.setswitchinterval(switch_interval)
 
@@ -1107,16 +1103,14 @@ class GPIOHandler:
         global all_operating
         global rpm_0
         global clean
-
-        waiting = Event()
         
         while self.run:
             if not self.clean and self.all_operating:
                 GPIO.output(PUL[i], GPIO.HIGH if operating[i] and not rpm_0[i]
                     else GPIO.LOW)
-                wiringpi.delayMicroseconds(int(round(delay[i] * 1000000)))
+                sleep(delay[i])
                 GPIO.output(PUL[i], GPIO.LOW)
-                wiringpi.delayMicroseconds(int(round(delay[i] * 1000000)))
+                sleep(delay[i])
                 GPIO.output(DIR[i], GPIO.LOW if dirs[i] else GPIO.HIGH)
             else:
                 sleep(0.0001)
