@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Terminal=false
+Exec=/usr/bin/python3 /home/pi/Desktop/stepperHandler/stepperHandler.py
+Name=Stepper Handler
+Icon=/usr/shar/raspberrypi-artwork/raspitr.png
