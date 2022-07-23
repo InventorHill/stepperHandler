@@ -465,7 +465,7 @@ class MainWindow(tk.Tk):
                             self.settings[motor][key_name][2])
                 # Calls increment procedure if letter pressed corresponds to a set
                 # increment/decrement letter
-                if e.char in increment_letters:
+                if e.char.lower() in increment_letters:
                     index = increment_letters.index(e.char.lower())
                     motor = ("top" if index < 2 else "middle" if index < 4 
                         else "bottom" if index < 6 else "all")
