@@ -5,8 +5,6 @@
 # Connect ground to PUL-, DIR- and the other terminal of the emergency stop button
 
 import tkinter as tk
-from tkinter import font
-from time import perf_counter
 from time import sleep
 import io
 import sys
@@ -1070,7 +1068,7 @@ class MainWindow(tk.Tk):
 
 # Class to interact with the motors
 class GPIOHandler:
-    threads = []
+    thread = None
     run = True # Only set to false when the program is exiting
     all_operating = False # Equivalent to the threads being paused
     clean = True # All GPIO settings have either been cleared or not instantiated
@@ -1085,15 +1083,13 @@ class GPIOHandler:
         switch_interval = sys.getswitchinterval() / 100.0
         sys.setswitchinterval(switch_interval)
 
-        for i in range(len(PUL)):
-            self.threads.append(threading.Thread(target=self.runMotors,
-                args=(i, )))
-            self.threads[i].daemon = True # If the program is closed forcefully,
-                                          # the threads will also close
-            self.threads[i].start()
+        self.thread = threading.Thread(target=self.runMotors)
+        self.thread.daemon = True # If the program is closed forcefully,
+                                  # the thread will also close
+        self.thread.start()
 
     # The procedure which actually controls the motors
-    def runMotors(self, i):
+    def runMotors(self):
         global run
         global delay
         global PUL
@@ -1103,16 +1099,27 @@ class GPIOHandler:
         global all_operating
         global rpm_0
         global clean
+
+        resolution = 0.00001 # Seconds between step increment
+        steps = [0, 0, 0]
+        gpio_high = [False, False, False]
         
         while self.run:
             if not self.clean and self.all_operating:
-                GPIO.output(PUL[i], GPIO.HIGH if operating[i] and not rpm_0[i]
-                    else GPIO.LOW)
-                sleep(delay[i])
-                GPIO.output(PUL[i], GPIO.LOW)
-                sleep(delay[i])
-                GPIO.output(DIR[i], GPIO.LOW if dirs[i] else GPIO.HIGH)
+                for i in range(len(PUL) - 1):
+                    GPIO.output(PUL[i], GPIO.HIGH if gpio_high[i] and operating[i]
+                        and not rpm_0[i] else GPIO.LOW)
+                    GPIO.output(DIR[i], GPIO.LOW if dirs[i] else GPIO.HIGH)
+                    
+                    steps[i] += 1
+                    if round(delay[i] / resolution) <= steps[i]:
+                        gpio_high[i] = not gpio_high[i]
+                        steps[i] = 0
+
+                sleep(resolution)
+
             else:
+                steps = [0, 0, 0]
                 sleep(0.0001)
 
     # Called whenever the state of the emergency stop pin changes; this allows
