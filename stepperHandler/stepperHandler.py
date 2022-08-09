@@ -6,14 +6,13 @@
 
 import tkinter as tk
 from time import sleep
-import io
 import sys
-import os
 from os import path
 import re
 import RPi.GPIO as GPIO
 import threading
 import subprocess
+from requests import get
 
 PUL = [ 0, 0, 0 ]  # PUL pins
 DIR = [ 0, 0, 0 ]  # Controller Direction Pin (High for Controller default /
@@ -28,6 +27,11 @@ rpm_0 = [False, False, False] # True if RPM set to 0 in GUI; prevents divide by 
                               # error
 gpio_handler = None
 app = None
+
+version = "1.0.0"
+
+url_main = ("https://raw.githubusercontent.com/InventorHill/stepperHandler"
+                "/main/stepperHandler/")
 
 # Class to interact with the user
 class MainWindow(tk.Tk):
@@ -162,6 +166,7 @@ class MainWindow(tk.Tk):
         global settings
         global cw_var
         global bcm_pins
+        global version
 
         super().__init__()
 
@@ -193,8 +198,11 @@ class MainWindow(tk.Tk):
         vnal = (self.register(self.validateAlu), "%P", False)
         vpin = (self.register(self.validateAlu), "%P", True)
 
+        self.getVersion()
+
         # Define all widgets
         self.widgets["main"] = {
+            "vers_lbl" : tk.Label(self.master, text="vers {0}".format(version)),
             "sett_btn" : tk.Button(self.master, text="SETTINGS (ALT + S)",
                 command=(self.register(self.createWindow), "settings")),
 
@@ -535,6 +543,11 @@ class MainWindow(tk.Tk):
 
         motors = (["top", "middle", "bottom"] if motor_name == "all"
             else [motor_name])
+
+        if motor_name == "all":
+            for op in operating:
+                if not op:
+                    return
         
         for motor in motors:
             index = list(self.settings.keys()).index(motor)
@@ -682,67 +695,68 @@ class MainWindow(tk.Tk):
         if name == "main":
             self.main_window = True
 
-            self.widgets["main"]["sett_btn"].grid(row=0, columnspan=4, sticky="we",
+            self.widgets["main"]["vers_lbl"].grid(row=0, column=0, padx=5, pady=5, sticky="w")
+            self.widgets["main"]["sett_btn"].grid(row=1, columnspan=4, sticky="we",
                 padx=5, pady=5)
 
-            self.widgets["main"]["tp_mtr_lbl"].grid(row=1, column=0, padx=5, pady=5)
-            self.widgets["main"]["tp_rpm_lbl"].grid(row=1, column=1, padx=5, pady=5)
-            self.widgets["main"]["tp_inc_lbl"].grid(row=1, column=3, padx=5, pady=5)
-            self.widgets["main"]["tp_dec_lbl"].grid(row=1, column=5, padx=5, pady=5)
-            self.widgets["main"]["tp_run_lbl"].grid(row=1, column=9, padx=5, pady=5)
-            self.widgets["main"]["tp_run_chk"].grid(row=1, column=10, pady=5)
-            self.widgets["main"]["tp_rpm_ent"].grid(row=1, column=2, padx=5, pady=5)
-            self.widgets["main"]["tp_inc_ent"].grid(row=1, column=4, padx=5, pady=5)
-            self.widgets["main"]["tp_dec_ent"].grid(row=1, column=6, padx=5, pady=5)
-            self.widgets["main"]["tp_inc_val_lbl"].grid(row=1, column=7, padx=5,
+            self.widgets["main"]["tp_mtr_lbl"].grid(row=2, column=0, padx=5, pady=5)
+            self.widgets["main"]["tp_rpm_lbl"].grid(row=2, column=1, padx=5, pady=5)
+            self.widgets["main"]["tp_inc_lbl"].grid(row=2, column=3, padx=5, pady=5)
+            self.widgets["main"]["tp_dec_lbl"].grid(row=2, column=5, padx=5, pady=5)
+            self.widgets["main"]["tp_run_lbl"].grid(row=2, column=9, padx=5, pady=5)
+            self.widgets["main"]["tp_run_chk"].grid(row=2, column=10, pady=5)
+            self.widgets["main"]["tp_rpm_ent"].grid(row=2, column=2, padx=5, pady=5)
+            self.widgets["main"]["tp_inc_ent"].grid(row=2, column=4, padx=5, pady=5)
+            self.widgets["main"]["tp_dec_ent"].grid(row=2, column=6, padx=5, pady=5)
+            self.widgets["main"]["tp_inc_val_lbl"].grid(row=2, column=7, padx=5,
                 pady=5)
-            self.widgets["main"]["tp_inc_val_ent"].grid(row=1, column=8, padx=5,
-                pady=5)
-
-            self.widgets["main"]["md_mtr_lbl"].grid(row=2, column=0, padx=5, pady=5)
-            self.widgets["main"]["md_rpm_lbl"].grid(row=2, column=1, padx=5, pady=5)
-            self.widgets["main"]["md_inc_lbl"].grid(row=2, column=3, padx=5, pady=5)
-            self.widgets["main"]["md_dec_lbl"].grid(row=2, column=5, padx=5, pady=5)
-            self.widgets["main"]["md_run_lbl"].grid(row=2, column=9, padx=5, pady=5)
-            self.widgets["main"]["md_run_chk"].grid(row=2, column=10, pady=5)
-            self.widgets["main"]["md_rpm_ent"].grid(row=2, column=2, padx=5, pady=5)
-            self.widgets["main"]["md_inc_ent"].grid(row=2, column=4, padx=5, pady=5)
-            self.widgets["main"]["md_dec_ent"].grid(row=2, column=6, padx=5, pady=5)
-            self.widgets["main"]["md_inc_val_lbl"].grid(row=2, column=7, padx=5,
-                pady=5)
-            self.widgets["main"]["md_inc_val_ent"].grid(row=2, column=8, padx=5,
+            self.widgets["main"]["tp_inc_val_ent"].grid(row=2, column=8, padx=5,
                 pady=5)
 
-            self.widgets["main"]["bt_mtr_lbl"].grid(row=3, column=0, padx=5, pady=5)
-            self.widgets["main"]["bt_rpm_lbl"].grid(row=3, column=1, padx=5, pady=5)
-            self.widgets["main"]["bt_inc_lbl"].grid(row=3, column=3, padx=5, pady=5)
-            self.widgets["main"]["bt_dec_lbl"].grid(row=3, column=5, padx=5, pady=5)
-            self.widgets["main"]["bt_run_lbl"].grid(row=3, column=9, padx=5, pady=5)
-            self.widgets["main"]["bt_run_chk"].grid(row=3, column=10, pady=5)
-            self.widgets["main"]["bt_rpm_ent"].grid(row=3, column=2, padx=5, pady=5)
-            self.widgets["main"]["bt_inc_ent"].grid(row=3, column=4, padx=5, pady=5)
-            self.widgets["main"]["bt_dec_ent"].grid(row=3, column=6, padx=5, pady=5)
-            self.widgets["main"]["bt_inc_val_lbl"].grid(row=3, column=7, padx=5,
+            self.widgets["main"]["md_mtr_lbl"].grid(row=3, column=0, padx=5, pady=5)
+            self.widgets["main"]["md_rpm_lbl"].grid(row=3, column=1, padx=5, pady=5)
+            self.widgets["main"]["md_inc_lbl"].grid(row=3, column=3, padx=5, pady=5)
+            self.widgets["main"]["md_dec_lbl"].grid(row=3, column=5, padx=5, pady=5)
+            self.widgets["main"]["md_run_lbl"].grid(row=3, column=9, padx=5, pady=5)
+            self.widgets["main"]["md_run_chk"].grid(row=3, column=10, pady=5)
+            self.widgets["main"]["md_rpm_ent"].grid(row=3, column=2, padx=5, pady=5)
+            self.widgets["main"]["md_inc_ent"].grid(row=3, column=4, padx=5, pady=5)
+            self.widgets["main"]["md_dec_ent"].grid(row=3, column=6, padx=5, pady=5)
+            self.widgets["main"]["md_inc_val_lbl"].grid(row=3, column=7, padx=5,
                 pady=5)
-            self.widgets["main"]["bt_inc_val_ent"].grid(row=3, column=8, padx=5,
-                pady=5)
-
-            self.widgets["main"]["bt_cw_lbl"].grid(row=4, column=5, padx=5)
-            self.widgets["main"]["bt_acw_lbl"].grid(row=4, column=7, padx=5)
-            self.widgets["main"]["bt_cw_rdo"].grid(row=4, column=6, padx=5)
-            self.widgets["main"]["bt_acw_rdo"].grid(row=4, column=8, padx=5)
-
-            self.widgets["main"]["al_mtr_lbl"].grid(row=5, column=0, padx=5, pady=5)
-            self.widgets["main"]["al_inc_lbl"].grid(row=5, column=3, padx=5, pady=5)
-            self.widgets["main"]["al_dec_lbl"].grid(row=5, column=5, padx=5, pady=5)
-            self.widgets["main"]["al_inc_val_lbl"].grid(row=5, column=7, padx=5,
-                pady=5)
-            self.widgets["main"]["al_inc_ent"].grid(row=5, column=4, padx=5, pady=5)
-            self.widgets["main"]["al_dec_ent"].grid(row=5, column=6, padx=5, pady=5)
-            self.widgets["main"]["al_inc_val_ent"].grid(row=5, column=8, padx=5,
+            self.widgets["main"]["md_inc_val_ent"].grid(row=3, column=8, padx=5,
                 pady=5)
 
-            self.widgets["main"]["strt_btn"].grid(row=6, column=1, columnspan=7,
+            self.widgets["main"]["bt_mtr_lbl"].grid(row=4, column=0, padx=5, pady=5)
+            self.widgets["main"]["bt_rpm_lbl"].grid(row=4, column=1, padx=5, pady=5)
+            self.widgets["main"]["bt_inc_lbl"].grid(row=4, column=3, padx=5, pady=5)
+            self.widgets["main"]["bt_dec_lbl"].grid(row=4, column=5, padx=5, pady=5)
+            self.widgets["main"]["bt_run_lbl"].grid(row=4, column=9, padx=5, pady=5)
+            self.widgets["main"]["bt_run_chk"].grid(row=4, column=10, pady=5)
+            self.widgets["main"]["bt_rpm_ent"].grid(row=4, column=2, padx=5, pady=5)
+            self.widgets["main"]["bt_inc_ent"].grid(row=4, column=4, padx=5, pady=5)
+            self.widgets["main"]["bt_dec_ent"].grid(row=4, column=6, padx=5, pady=5)
+            self.widgets["main"]["bt_inc_val_lbl"].grid(row=4, column=7, padx=5,
+                pady=5)
+            self.widgets["main"]["bt_inc_val_ent"].grid(row=4, column=8, padx=5,
+                pady=5)
+
+            self.widgets["main"]["bt_cw_lbl"].grid(row=5, column=5, padx=5)
+            self.widgets["main"]["bt_acw_lbl"].grid(row=5, column=7, padx=5)
+            self.widgets["main"]["bt_cw_rdo"].grid(row=5, column=6, padx=5)
+            self.widgets["main"]["bt_acw_rdo"].grid(row=5, column=8, padx=5)
+
+            self.widgets["main"]["al_mtr_lbl"].grid(row=6, column=0, padx=5, pady=5)
+            self.widgets["main"]["al_inc_lbl"].grid(row=6, column=3, padx=5, pady=5)
+            self.widgets["main"]["al_dec_lbl"].grid(row=6, column=5, padx=5, pady=5)
+            self.widgets["main"]["al_inc_val_lbl"].grid(row=6, column=7, padx=5,
+                pady=5)
+            self.widgets["main"]["al_inc_ent"].grid(row=6, column=4, padx=5, pady=5)
+            self.widgets["main"]["al_dec_ent"].grid(row=6, column=6, padx=5, pady=5)
+            self.widgets["main"]["al_inc_val_ent"].grid(row=6, column=8, padx=5,
+                pady=5)
+
+            self.widgets["main"]["strt_btn"].grid(row=7, column=1, columnspan=7,
                 sticky="we", pady=5)
 
         # Positions all the widgets for the settings window
@@ -913,6 +927,16 @@ class MainWindow(tk.Tk):
         self.createWindow(name="errors", error=self.error)
         self.error = ""
 
+    def getVersion(self):
+        global version
+
+        vers_path = path.join(sys.path[0], "version.cfg")
+
+        if path.exists(vers_path):
+            vers = open(vers_path, "r")
+            version = vers.read()
+            vers.close()
+
     # Reads the stepperSettings.cfg file into the settings variable and
     # updates the widgets
     def readFile(self):
@@ -924,7 +948,6 @@ class MainWindow(tk.Tk):
         old_settings = self.settings
         # stepperSettings.cfg must be in the same directory as this script
         cfg_path = path.join(sys.path[0], "stepperSettings.cfg")
-        settings_keys = list(self.settings.keys())
 
         try:
             if path.exists(cfg_path):
@@ -1106,7 +1129,7 @@ class GPIOHandler:
         
         while self.run:
             if not self.clean and self.all_operating:
-                for i in range(len(PUL) - 1):
+                for i in range(len(PUL)):
                     GPIO.output(PUL[i], GPIO.HIGH if gpio_high[i] and operating[i]
                         and not rpm_0[i] else GPIO.LOW)
                     GPIO.output(DIR[i], GPIO.LOW if dirs[i] else GPIO.HIGH)
@@ -1181,6 +1204,25 @@ class GPIOHandler:
             GPIO.cleanup()
             self.clean = True
 
+def updateVersion():
+    global version
+    global url_main
+
+    try:
+        test_vers = str(get("{0}version.cfg".format(url_main)))
+        if test_vers != version:
+            vers_file = open(path.join(sys.path[0], "version.cfg"), "w")
+            vers_file.write(test_vers)
+            vers_file.close()
+
+            script_text = str(get("{0}stepperHandler.py".format(url_main)))
+            script = open(path.join(sys.path[0], "stepperHandler.py"), "w")
+            script.write(script_text)
+            script.close()
+    except:
+        pass
+
+
 
 # Called to start the program proper
 def main():
@@ -1190,6 +1232,7 @@ def main():
     gpio_handler = GPIOHandler()
     app = MainWindow()
     app.mainloop() # Makes TKinter start to listen for user inputs
+    updateVersion()
 
 # Ensures the rest of the program only runs if this has not been imported as
 # a module by another program
