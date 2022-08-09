@@ -4,6 +4,7 @@
 #
 # Connect ground to PUL-, DIR- and the other terminal of the emergency stop button
 
+
 import tkinter as tk
 from time import sleep
 import sys
@@ -1209,16 +1210,17 @@ def updateVersion():
     global url_main
 
     try:
-        test_vers = str(get("{0}version.cfg".format(url_main)))
-        if test_vers != version:
+        test_vers = get("{0}version.cfg".format(url_main))
+        if test_vers.text != version and "200" in test_vers:
             vers_file = open(path.join(sys.path[0], "version.cfg"), "w")
-            vers_file.write(test_vers)
+            vers_file.write(test_vers.text)
             vers_file.close()
 
-            script_text = str(get("{0}stepperHandler.py".format(url_main)))
-            script = open(path.join(sys.path[0], "stepperHandler.py"), "w")
-            script.write(script_text)
-            script.close()
+            script_text = get("{0}stepperHandler.py".format(url_main))
+            if "200" in script_text:
+                script = open(path.join(sys.path[0], "stepperHandler.py"), "w")
+                script.write(script_text.text)
+                script.close()
     except:
         pass
 
