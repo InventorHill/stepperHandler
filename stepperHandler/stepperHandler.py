@@ -4,7 +4,6 @@
 #
 # Connect ground to PUL-, DIR- and the other terminal of the emergency stop button
 
-
 import tkinter as tk
 from time import sleep
 import sys
@@ -1053,7 +1052,7 @@ class MainWindow(tk.Tk):
 
                 # Ensures that comment is in the correct format; no new lines and no unnecessary
                 # whitespace before or after the actual comment
-                comment = self.settings[key][sub_key][4]
+                comment = self.settings[key][sub_key][4].strip()
                 comment = " // {0}".format(comment) if comment != "" else ""
                 comment = re.sub("[\r|\n]", "", comment)
                 lines.append("{0} = {1}{2}".format(sub_key, value, comment))
@@ -1211,19 +1210,21 @@ def updateVersion():
 
     try:
         test_vers = get("{0}version.cfg".format(url_main))
-        if test_vers.text != version and "200" in test_vers:
+        print(version)
+        print(test_vers.text)
+        print(test_vers)
+        if test_vers.text != version and "200" in str(test_vers):
             vers_file = open(path.join(sys.path[0], "version.cfg"), "w")
             vers_file.write(test_vers.text)
             vers_file.close()
 
             script_text = get("{0}stepperHandler.py".format(url_main))
-            if "200" in script_text:
+            if "200" in str(script_text):
                 script = open(path.join(sys.path[0], "stepperHandler.py"), "w")
                 script.write(script_text.text)
                 script.close()
     except:
         pass
-
 
 
 # Called to start the program proper
