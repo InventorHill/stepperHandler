@@ -5,6 +5,7 @@
 # Connect ground to PUL-, DIR- and the other terminal of the emergency stop button
 
 import tkinter as tk
+from tkinter import filedialog as fd
 from time import sleep
 import sys
 from os import path
@@ -78,6 +79,10 @@ class MainWindow(tk.Tk):
 
     error = ""
 
+    settings_filepath = ""
+
+    settings_filename = None
+
     settings = {
         "top": {
             "rpm" : ["tp_rpm_ent", "main", "", "NaN", "The motor's actual RPM"],
@@ -135,7 +140,7 @@ class MainWindow(tk.Tk):
         }
     } # Widget name, window in which it will be found, value, error if value
       # incorrect, comment in settings file. Default comments are provided here,
-      # but they can be changed by editing stepperSettings.cfg
+      # but they can be changed by editing the settings file
 
     disable_widgets = [
         "tp_rpm_ent",
@@ -167,11 +172,17 @@ class MainWindow(tk.Tk):
         global cw_var
         global bcm_pins
         global version
+        global settings_filepath
+        global settings_filename
 
         super().__init__()
 
         # Get GPIO pins
         self.bcm_pins = str(subprocess.run("pinout", stdout=subprocess.PIPE))
+
+        self.settings_filename = tk.StringVar()
+        self.settings_filename.set("stepperSettings.cfg")
+        self.settings_filepath = path.join(sys.path[0], self.settings_filename.get())
 
         # Specify all necessary key bindings
         self.bind_all("<KeyPress>", self.keypress)
@@ -202,9 +213,14 @@ class MainWindow(tk.Tk):
 
         # Define all widgets
         self.widgets["main"] = {
-            "vers_lbl" : tk.Label(self.master, text="vers {0}".format(version)),
+            "vers_lbl" : tk.Label(self.master, text="v{0}".format(version)),
             "sett_btn" : tk.Button(self.master, text="SETTINGS (ALT + S)",
                 command=(self.register(self.createWindow), "settings")),
+
+            "file_lbl" : tk.Label(self.master, textvariable=self.settings_filename),
+
+            "file_btn" : tk.Button(self.master, text="CHANGE SETTINGS FILE",
+                command=self.selectSettingsFile),
 
             "tp_mtr_lbl" : tk.Label(self.master, text="TOP MOTOR:"),
             "tp_rpm_lbl" : tk.Label(self.master, text="RPM"),
@@ -424,6 +440,22 @@ class MainWindow(tk.Tk):
         else:
             if modifier == "return":
                 self.createWindow("unknown")
+
+    def selectSettingsFile(self):
+        global settings_filename
+        global settings_filepath
+
+        filetypes = (("Configuration Files", "*.cfg"),)
+
+        filepath = fd.askopenfilename(
+            title="Select Settings Configuration File",
+            initialdir=sys.path[0],
+            filetypes=filetypes
+        )
+
+        self.settings_filepath = filepath if filepath != "" else self.settings_filepath
+
+        self.settings_filename.set(path.basename(self.settings_filepath))
 
     # Called for all keypresses
     def keypress(self, e):
@@ -695,8 +727,12 @@ class MainWindow(tk.Tk):
         if name == "main":
             self.main_window = True
 
-            self.widgets["main"]["vers_lbl"].grid(row=0, column=0, padx=5, pady=5, sticky="w")
-            self.widgets["main"]["sett_btn"].grid(row=1, columnspan=4, sticky="we",
+            self.widgets["main"]["vers_lbl"].grid(row=0, column=0, padx=5, sticky="w")
+            self.widgets["main"]["sett_btn"].grid(row=1, column=0, columnspan=4, sticky="we",
+                padx=5, pady=5)
+            self.widgets["main"]["file_btn"].grid(row=1, column=4, columnspan=3, sticky="we",
+                padx=5, pady=5)
+            self.widgets["main"]["file_lbl"].grid(row=1, column=7, columnspan=4, sticky="we",
                 padx=5, pady=5)
 
             self.widgets["main"]["tp_mtr_lbl"].grid(row=2, column=0, padx=5, pady=5)
@@ -937,17 +973,18 @@ class MainWindow(tk.Tk):
             version = vers.read()
             vers.close()
 
-    # Reads the stepperSettings.cfg file into the settings variable and
+    # Reads the settings file into the settings variable and
     # updates the widgets
     def readFile(self):
         global settings
         global widgets
         global error
         global cw_var
+        global settings_filepath
 
         old_settings = self.settings
-        # stepperSettings.cfg must be in the same directory as this script
-        cfg_path = path.join(sys.path[0], "stepperSettings.cfg")
+        # The settings file must be in the same directory as this script
+        cfg_path = path.join(sys.path[0], self.settings_filepath)
 
         try:
             if path.exists(cfg_path):
@@ -1023,12 +1060,13 @@ class MainWindow(tk.Tk):
 
         return True
 
-    # Writes to the stepperSettings.cfg file from the settings variable and
+    # Writes to the settings file from the settings variable and
     # updates the settings variable
     def writeFile(self):
         global settings
         global widgets
         global cw_var
+        global settings_filepath
 
         lines = []
 
@@ -1061,7 +1099,7 @@ class MainWindow(tk.Tk):
         # Removes the last element from the list
         lines.pop()
         text = "\n".join(lines)
-        cfg_path = path.join(sys.path[0], "stepperSettings.cfg")
+        cfg_path = path.join(sys.path[0], self.settings_filepath)
         cfg = open(cfg_path, "w")
         cfg.write(text)
         cfg.close()
@@ -1210,13 +1248,15 @@ def updateVersion():
 
     try:
         test_vers = get("{0}version.cfg".format(url_main))
-        print(version)
-        print(test_vers.text)
-        print(test_vers)
-        if test_vers.text != version and "200" in str(test_vers):
+        int_test_vers = int(str.replace(test_vers.text, ".", ""))
+        int_version = int(str.replace(version, ".", ""))
+
+        if int_test_vers > int_version and "200" in str(test_vers):
             vers_file = open(path.join(sys.path[0], "version.cfg"), "w")
             vers_file.write(test_vers.text)
             vers_file.close()
+
+            version = test_vers.text
 
             script_text = get("{0}stepperHandler.py".format(url_main))
             if "200" in str(script_text):
@@ -1225,6 +1265,7 @@ def updateVersion():
                 script.close()
     except:
         pass
+
 
 
 # Called to start the program proper
